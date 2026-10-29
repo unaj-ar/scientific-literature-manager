@@ -1,3 +1,9 @@
+<<<<<<< HEAD
+# scientific-literature-manager
+revisión sistematica de la literatura
+
+correr con uvicorn api:app --reload
+=======
 # 📚 Scientific Literature Manager
 
 Un sistema integral diseñado para organizar y optimizar el ciclo de vida de la investigación científica: **Descubrimiento**, **Organización**, **Priorización** y **Recuperación** de artículos académicos.
@@ -26,3 +32,5 @@ scientific_literature_manager/
 ├── main.py                  # Punto de entrada para la consola CLI
 └── requirements.txt         # Dependencias del proyecto
 
+
+ uvicorn api:app --reload

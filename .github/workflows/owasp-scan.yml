@@ -1,0 +1,46 @@
+name: OWASP Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Descargar el código del repositorio
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Configurar entorno de Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # 3. Analizar código Python en busca de brechas (SAST)
+      - name: Run Bandit (Python Security Linter)
+        run: |
+          pip install bandit
+          bandit -r . -x ./venv --severity-level medium
+
+      # 4. Analizar dependencias con OWASP Dependency-Check
+      - name: OWASP Dependency-Check Scan
+        uses: dependency-check/Dependency-Check_Action@main
+        id: Dependency-check
+        with:
+          project: 'scientific-literature-manager'
+          path: '.'
+          format: 'HTML'
+          out: 'reports'
+
+      # 5. Guardar el reporte generado como un artefacto descargable
+      - name: Upload OWASP Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: OWASP-Dependency-Report
+          path: reports/
