@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scientific Literature Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-8">
+
+    <div class="max-w-6xl mx-auto space-y-8">
+        <header class="border-b border-slate-700 pb-4">
+            <h1 class="text-3xl font-bold text-indigo-400">Scientific Literature Manager</h1>
+            <p class="text-slate-400 text-sm mt-1">Gestión web conectada a FastAPI & PostgreSQL</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            <!-- FORMULARIO DE ALTA -->
+            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
+                <h2 class="text-xl font-semibold text-emerald-400">➕ Agregar Artículo</h2>
+
+                <form id="add-form" class="space-y-3 text-sm">
+                    <div>
+                        <label class="block text-slate-400 mb-1">Título *</label>
+                        <input type="text" id="title" required class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-slate-400 mb-1">Autores (separados por coma) *</label>
+                        <input type="text" id="authors" placeholder="Ej: John Doe, Jane Smith" required class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-slate-400 mb-1">Año</label>
+                            <input type="number" id="year" placeholder="2026" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Prioridad</label>
+                            <select id="priority" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:outline-none focus:border-indigo-500">
+                                <option value="P1">P1 - Alta</option>
+                                <option value="P2" selected>P2 - Media</option>
+                                <option value="P3">P3 - Baja</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-slate-400 mb-1">Estado</label>
+                            <select id="status" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:outline-none focus:border-indigo-500">
+                                <option value="Unread">Unread</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Read">Read</option>
+                                <option value="Archived">Archived</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">DOI</label>
+                            <input type="text" id="doi" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:outline-none focus:border-indigo-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-slate-400 mb-1">Etiquetas</label>
+                        <input type="text" id="tags" placeholder="IA, Salud" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-slate-400 mb-1">Ruta PDF / Link</label>
+                        <input type="text" id="pdf_path" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+
+                    <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 font-medium py-2 rounded transition">
+                        Guardar en Base de Datos
+                    </button>
+                </form>
+            </div>
+
+            <!-- TABLA Y CONSULTAS -->
+            <div class="lg:col-span-2 space-y-4">
+
+                <div class="flex flex-col sm:flex-row justify-between gap-2 bg-slate-800 p-4 rounded-xl border border-slate-700">
+                    <button onclick="loadArticles()" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded text-sm font-medium transition">
+                        🔄 Cargar Lista General (Prioridad)
+                    </button>
+
+                    <div class="flex gap-2">
+                        <input type="text" id="search-author" placeholder="Buscar por autor..." class="bg-slate-900 border border-slate-700 rounded p-2 text-sm focus:outline-none">
+                        <button onclick="searchByAuthor()" class="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded text-sm transition">
+                            🔍 Buscar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- CONTENEDOR DE RESULTADOS -->
+                <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 overflow-x-auto">
+                    <div id="articles-container" class="space-y-3">
+                        <p class="text-slate-400 text-sm">Cargando registros...</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "http://127.0.0.1:8000";
+
+        // 1. Cargar artículos ordenados por prioridad
+        async function loadArticles() {
+            const container = document.getElementById('articles-container');
+            container.innerHTML = '<p class="text-slate-400 text-sm">Cargando...</p>';
+
+            try {
+                const res = await fetch(`${API_URL}/articles`);
+                const articles = await res.json();
+                renderArticles(articles);
+            } catch (err) {
+                container.innerHTML = `<p class="text-red-400 text-sm">Error conectando con la API backend: ${err.message}</p>`;
+            }
+        }
+
+        // 2. Buscar artículos por nombre de autor
+        async function searchByAuthor() {
+            const author = document.getElementById('search-author').value.trim();
+            if (!author) return loadArticles();
+
+            const container = document.getElementById('articles-container');
+            container.innerHTML = '<p class="text-slate-400 text-sm">Buscando...</p>';
+
+            try {
+                const res = await fetch(`${API_URL}/articles/author/${encodeURIComponent(author)}`);
+                const articles = await res.json();
+                renderArticles(articles);
+            } catch (err) {
+                container.innerHTML = `<p class="text-red-400 text-sm">Error en la búsqueda: ${err.message}</p>`;
+            }
+        }
+
+        // Renderizar elementos en el DOM
+        function renderArticles(articles) {
+            const container = document.getElementById('articles-container');
+            if (!articles || articles.length === 0) {
+                container.innerHTML = '<p class="text-slate-400 text-sm">No se encontraron artículos.</p>';
+                return;
+            }
+
+            container.innerHTML = articles.map(art => `
+                <div class="bg-slate-900 p-4 rounded-lg border border-slate-700 space-y-2">
+                    <div class="flex justify-between items-start">
+                        <span class="text-xs font-bold px-2 py-1 rounded bg-indigo-900 text-indigo-300">${art.priority || 'P2'}</span>
+                        <span class="text-xs text-slate-400">${art.status || 'Unread'}</span>
+                    </div>
+                    <h3 class="font-bold text-white">${art.title} (${art.publication_year || 'N/A'})</h3>
+                    <p class="text-xs text-emerald-400"><strong>Autores:</strong> ${art.authors || 'Sin autor'}</p>
+                    ${art.tags ? `<p class="text-xs text-slate-400"><strong>Etiquetas:</strong> ${art.tags}</p>` : ''}
+                    ${art.pdf_path ? `<p class="text-xs text-slate-500 truncate"><strong>Link:</strong> ${art.pdf_path}</p>` : ''}
+                </div>
+            `).join('');
+        }
+
+        // 3. Alta de un nuevo artículo desde el formulario
+        document.getElementById('add-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const payload = {
+                title: document.getElementById('title').value,
+                authors: document.getElementById('authors').value,
+                publication_year: document.getElementById('year').value,
+                priority: document.getElementById('priority').value,
+                status: document.getElementById('status').value,
+                doi: document.getElementById('doi').value,
+                tags: document.getElementById('tags').value,
+                pdf_path: document.getElementById('pdf_path').value,
+            };
+
+            try {
+                const res = await fetch(`${API_URL}/articles`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    alert('✅ Artículo guardado en PostgreSQL');
+                    document.getElementById('add-form').reset();
+                    loadArticles();
+                } else {
+                    const err = await res.json();
+                    alert(`⚠️ Error: ${err.detail}`);
+                }
+            } catch (err) {
+                alert(`⚠️ Error de red: ${err.message}`);
+            }
+        });
+
+        // Carga inicial
+        loadArticles();
+    </script>
+</body>
+</html>
