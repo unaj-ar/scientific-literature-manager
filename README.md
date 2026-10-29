@@ -32,4 +32,5 @@ scientific_literature_manager/
 ├── main.py                  # Punto de entrada para la consola CLI
 └── requirements.txt         # Dependencias del proyecto
 
->>>>>>> develop
+
+ uvicorn api:app --reload
