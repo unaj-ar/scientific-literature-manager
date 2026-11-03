@@ -1,8 +1,14 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse  # <-- 1. Agregar esta importación
 from pydantic import BaseModel
 from typing import Optional
+from services.auth_service import get_current_user
+
+from starlette import status
+
+from repository import user_repository
+from services import user_service
 from services.literature_service import LiteratureService
 
 app = FastAPI(title="Scientific Literature Manager API")
@@ -22,7 +28,7 @@ service = LiteratureService()
 @app.get("/")
 def read_root():
     """Servir la página index.html al entrar a la raíz"""
-    return FileResponse("index.html")
+    return FileResponse("ui/login.html")
 
 # Modelo de datos de entrada para la API
 class ArticleSchema(BaseModel):
@@ -64,3 +70,24 @@ def create_article(article: ArticleSchema):
         return {"status": "success", "article_id": article_id}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/users/{user_id}", status_code=status.HTTP_200_OK)
+def delete_user(
+    user_id: int,
+    current_user: str = Depends(get_current_user)
+):
+    """Endpoint para baja lógica de usuario."""
+    return user_service.deactivate_user(user_id=user_id, current_user_id=current_user["id"])
+
+
+@app.patch("/users/{user_id}/restore", status_code=status.HTTP_200_OK)
+def restore_user(
+    user_id: int,
+    current_user: str = Depends(get_current_user)
+):
+    """Endpoint opcional para reactivar una entidad."""
+    success = user_repository.restore(user_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado o ya activo.")
+    return {"message": f"Usuario {user_id} reactivado con éxito."}

@@ -198,6 +198,45 @@
 
         // Carga inicial
         loadArticles();
+
+        // Verificar si el usuario está autenticado al cargar la página
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                // Redirigir a la pantalla de login si no hay token
+                window.location.href = '/login.html';
+            } else {
+                // Cargar los artículos si está autenticado
+                loadArticles();
+            }
+        });
+
+        // Ejemplo de petición protegida usando el Token JWT
+        async function loadArticles() {
+            const token = localStorage.getItem('access_token');
+
+            const response = await fetch('/articles', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.status === 401) {
+                // Si el token expiró o es inválido, cerrar sesión y redirigir
+                localStorage.removeItem('access_token');
+                window.location.href = '/login.html';
+                return;
+            }
+
+            const articles = await response.json();
+            // ... renderizar artículos en la tabla
+        }
+
+        // Función para Cerrar Sesión
+        function logout() {
+            localStorage.removeItem('access_token');
+            window.location.href = '/login.html';
+        }
     </script>
 </body>
 </html>
