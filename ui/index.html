@@ -9,8 +9,12 @@
 <body class="bg-slate-900 text-slate-100 min-h-screen p-8">
 
     <div class="max-w-6xl mx-auto space-y-8">
-        <header class="border-b border-slate-700 pb-4">
+        <header class="border-b border-slate-700 pb-4 flex justify-between items-center">
             <h1 class="text-3xl font-bold text-indigo-400">Scientific Literature Manager</h1>
+            <div class="flex gap-4 text-sm">
+                <a id="admin-link" href="/admin.html" class="hidden text-emerald-400 hover:underline">Consola admin</a>
+                <button type="button" onclick="logout()" class="text-slate-400 hover:text-white">Cerrar sesión</button>
+            </div>
             <p class="text-slate-400 text-sm mt-1">Gestión web conectada a FastAPI & PostgreSQL</p>
         </header>
 
@@ -108,13 +112,28 @@
     <script>
         const API_URL = "http://127.0.0.1:8000";
 
+        function authHeaders(extra = {}) {
+            return { ...extra, 'Authorization': `Bearer ${localStorage.getItem('access_token')}` };
+        }
+
+        // Si el token falta, expiró o fue revocado, vuelve al login
+        function handleUnauthorized(res) {
+            if (res.status === 401) {
+                localStorage.removeItem('access_token');
+                window.location.href = '/login.html';
+                return true;
+            }
+            return false;
+        }
+
         // 1. Cargar artículos ordenados por prioridad
         async function loadArticles() {
             const container = document.getElementById('articles-container');
             container.innerHTML = '<p class="text-slate-400 text-sm">Cargando...</p>';
 
             try {
-                const res = await fetch(`${API_URL}/articles`);
+                const res = await fetch(`${API_URL}/articles`, { headers: authHeaders() });
+                if (handleUnauthorized(res)) return;
                 const articles = await res.json();
                 renderArticles(articles);
             } catch (err) {
@@ -131,7 +150,8 @@
             container.innerHTML = '<p class="text-slate-400 text-sm">Buscando...</p>';
 
             try {
-                const res = await fetch(`${API_URL}/articles/author/${encodeURIComponent(author)}`);
+                const res = await fetch(`${API_URL}/articles/author/${encodeURIComponent(author)}`, { headers: authHeaders() });
+                if (handleUnauthorized(res)) return;
                 const articles = await res.json();
                 renderArticles(articles);
             } catch (err) {
@@ -179,9 +199,10 @@
             try {
                 const res = await fetch(`${API_URL}/articles`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: authHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify(payload)
                 });
+                if (handleUnauthorized(res)) return;
 
                 if (res.ok) {
                     alert('✅ Artículo guardado en PostgreSQL');
@@ -196,8 +217,25 @@
             }
         });
 
-        // Carga inicial
-        loadArticles();
+        // Carga inicial: exige estar autenticado
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!localStorage.getItem('access_token')) {
+                window.location.href = '/login.html';
+            } else {
+                loadArticles();
+                fetch(`${API_URL}/me`, { headers: authHeaders() })
+                    .then(r => r.ok ? r.json() : null)
+                    .then(me => {
+                        if (me && me.role === 'admin') document.getElementById('admin-link').classList.remove('hidden');
+                    });
+            }
+        });
+
+        // Función para Cerrar Sesión
+        function logout() {
+            localStorage.removeItem('access_token');
+            window.location.href = '/login.html';
+        }
     </script>
 </body>
 </html>

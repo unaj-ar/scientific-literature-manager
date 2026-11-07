@@ -13,3 +13,12 @@ def get_connection():
         password=os.getenv("DB_PASSWORD", ""),
         database=os.getenv("DB_NAME", "academic_management")
     )
+
+
+def get_db():
+    """Dependencia de FastAPI: abre una conexión por request y la cierra al terminar."""
+    conn = get_connection()
+    try:
+        yield conn
+    finally:
+        conn.close()

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consola de administración</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-8">
+    <div class="max-w-6xl mx-auto space-y-8">
+        <header class="border-b border-slate-700 pb-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-indigo-400">Consola de administración</h1>
+                <p id="whoami" class="text-slate-400 text-sm"></p>
+            </div>
+            <div class="flex gap-4 text-sm">
+                <a href="/index.html" class="text-emerald-400 hover:underline">Ir a artículos</a>
+                <button type="button" id="logout" class="text-slate-400 hover:text-white">Cerrar sesión</button>
+            </div>
+        </header>
+
+        <div id="message" class="hidden rounded p-3 text-sm"></div>
+
+        <section class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
+            <h2 class="text-xl font-semibold text-emerald-400">➕ Crear usuario</h2>
+            <form id="create-form" class="grid grid-cols-1 md:grid-cols-5 gap-3 text-sm">
+                <input id="new-username" required minlength="3" maxlength="50" placeholder="Usuario" class="bg-slate-900 border border-slate-700 rounded p-2">
+                <input id="new-email" type="email" required placeholder="Email" class="bg-slate-900 border border-slate-700 rounded p-2">
+                <input id="new-password" type="password" required minlength="8" placeholder="Contraseña (mín. 8)" autocomplete="new-password" class="bg-slate-900 border border-slate-700 rounded p-2">
+                <select id="new-role" class="bg-slate-900 border border-slate-700 rounded p-2">
+                    <option value="researcher">Investigador</option>
+                    <option value="admin">Administrador</option>
+                </select>
+                <button class="bg-indigo-600 hover:bg-indigo-500 rounded p-2 font-semibold">Crear</button>
+            </form>
+        </section>
+
+        <section class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
+            <h2 class="text-xl font-semibold text-emerald-400">👥 Usuarios</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-slate-400 border-b border-slate-700">
+                        <tr><th class="p-2">ID</th><th class="p-2">Usuario</th><th class="p-2">Email</th><th class="p-2">Rol</th><th class="p-2">Estado</th><th class="p-2">Acciones</th></tr>
+                    </thead>
+                    <tbody id="users-body"></tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        let me = null;
+
+        const token = () => localStorage.getItem('access_token');
+
+        function goLogin() {
+            localStorage.removeItem('access_token');
+            window.location.href = '/login.html';
+        }
+
+        function showMessage(text, ok) {
+            const box = document.getElementById('message');
+            box.textContent = text;
+            box.className = 'rounded p-3 text-sm ' + (ok ? 'bg-emerald-900 text-emerald-200' : 'bg-red-900 text-red-200');
+        }
+
+        async function api(path, options = {}) {
+            const res = await fetch(path, {
+                ...options,
+                headers: { 'Authorization': `Bearer ${token()}`, ...(options.body ? { 'Content-Type': 'application/json' } : {}) }
+            });
+            if (res.status === 401) { goLogin(); throw new Error('Sesión expirada'); }
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                const detail = Array.isArray(data.detail) ? data.detail.map(d => d.msg).join(', ') : data.detail;
+                throw new Error(detail || `Error ${res.status}`);
+            }
+            return data;
+        }
+
+        async function run(action, okText) {
+            try {
+                await action();
+                showMessage(okText, true);
+            } catch (err) {
+                showMessage(err.message, false);
+            }
+            await loadUsers();
+        }
+
+        function cell(text) {
+            const td = document.createElement('td');
+            td.className = 'p-2';
+            td.textContent = text;
+            return td;
+        }
+
+        function button(label, handler, cls) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = label;
+            b.className = 'text-xs px-2 py-1 rounded ' + cls;
+            b.addEventListener('click', handler);
+            return b;
+        }
+
+        async function loadUsers() {
+            const users = await api('/users');
+            const body = document.getElementById('users-body');
+            body.replaceChildren();
+            for (const u of users) {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-slate-700';
+                tr.append(cell(u.id), cell(u.username), cell(u.email));
+
+                const roleTd = document.createElement('td');
+                roleTd.className = 'p-2';
+                const select = document.createElement('select');
+                select.className = 'bg-slate-900 border border-slate-700 rounded p-1';
+                for (const [value, label] of [['researcher', 'Investigador'], ['admin', 'Administrador']]) {
+                    const o = document.createElement('option');
+                    o.value = value; o.textContent = label; o.selected = u.role === value;
+                    select.append(o);
+                }
+                select.disabled = u.id === me.id;
+                select.addEventListener('change', () =>
+                    run(() => api(`/users/${u.id}/role`, { method: 'PATCH', body: JSON.stringify({ role: select.value }) }),
+                        `Rol de ${u.username} actualizado.`));
+                roleTd.append(select);
+
+                const actions = document.createElement('td');
+                actions.className = 'p-2';
+                if (u.id !== me.id) {
+                    actions.append(u.is_active
+                        ? button('Dar de baja', () => run(() => api(`/users/${u.id}`, { method: 'DELETE' }), `${u.username} dado de baja.`), 'bg-red-700 hover:bg-red-600')
+                        : button('Reactivar', () => run(() => api(`/users/${u.id}/restore`, { method: 'PATCH' }), `${u.username} reactivado.`), 'bg-emerald-700 hover:bg-emerald-600'));
+                }
+                tr.append(roleTd, cell(u.is_active ? 'Activo' : 'Dado de baja'), actions);
+                body.append(tr);
+            }
+        }
+
+        document.getElementById('logout').addEventListener('click', goLogin);
+
+        document.getElementById('create-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const payload = {
+                username: document.getElementById('new-username').value.trim(),
+                email: document.getElementById('new-email').value.trim(),
+                password: document.getElementById('new-password').value,
+                role: document.getElementById('new-role').value,
+            };
+            run(async () => {
+                await api('/users', { method: 'POST', body: JSON.stringify(payload) });
+                e.target.reset();
+            }, `Usuario ${payload.username} creado.`);
+        });
+
+        (async () => {
+            if (!token()) return goLogin();
+            try {
+                me = await api('/me');
+                if (me.role !== 'admin') { window.location.href = '/index.html'; return; }
+                document.getElementById('whoami').textContent = `Sesión: ${me.username} (administrador)`;
+                await loadUsers();
+            } catch (err) {
+                showMessage(err.message, false);
+            }
+        })();
+    </script>
+</body>
+</html>
