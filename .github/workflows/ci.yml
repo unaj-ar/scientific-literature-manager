@@ -1,0 +1,55 @@
+name: Python CI (Tests & Linting)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        # Ejecuta la suite en las versiones de Python que soporte tu proyecto
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      # 1. Descargar el código
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Configurar entorno de Python con caché
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      # 3. Instalar dependencias
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+          pip install pytest pytest-cov ruff
+
+      # 4. Verificar estilo y errores sintácticos con Ruff
+      - name: Run Ruff (Linter)
+        run: |
+          # Detiene la build si hay errores sintácticos o imports no utilizados
+          ruff check .
+
+      # 5. Ejecutar Pruebas Unitarias con Pytest y reporte de cobertura
+      - name: Run Pytest
+        run: |
+          pytest --junitxml=test-results-${{ matrix.python-version }}.xml
+
+      # 6. Guardar los resultados del test como artefactos (opcional)
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-python-${{ matrix.python-version }}
+          path: test-results-*.xml

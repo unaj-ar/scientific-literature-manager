@@ -1,0 +1,37 @@
+name: Ejecutar Agente
+
+on:
+  # Permite ejecutarlo manualmente desde la pestaña "Actions" de GitHub
+  workflow_dispatch:
+
+  # (Opcional) Puedes programar para que corra automáticamente cada cierto tiempo
+  # schedule:
+  #   - cron: '0 8 * * *' # Todos los días a las 08:00 UTC
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Descargar el código del repositorio
+    - name: Copiar repositorio al entorno
+      uses: actions/checkout@v4
+
+    # 2. Configurar el lenguaje (Ejemplo usando Python)
+    - name: Configurar Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    # 3. Instalar las dependencias
+    - name: Instalar dependencias
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+    # 4. Ejecutar el agente
+    - name: Correr el agente
+      run: python agent.py
+      env:
+        # Si tu agente usa APIs (como OpenAI, Anthropic, etc.), pásalas como variables de entorno seguras
+        MI_API_KEY: ${{ secrets.MI_API_KEY }}

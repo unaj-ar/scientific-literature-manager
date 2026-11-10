@@ -1,0 +1,72 @@
+graph TD
+    %% Estilos y Colores
+    classDef client fill:#e1f5fe,stroke:#0288d1,stroke-width:2px;
+    classDef api fill:#fff3e0,stroke:#f57c00,stroke-width:2px;
+    classDef service fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;
+    classDef db fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px;
+    classDef cicd fill:#eceff1,stroke:#455a64,stroke-width:2px;
+
+    %% Subgraph 1: Capa de Cliente / Presentación
+    subgraph ClientLayer ["🖥️ Capa de Presentación / Cliente"]
+        CLI["💻 CLI Interface"]:::client
+        WebUI["🌐 Web UI (index.html / login.html)"]:::client
+    end
+
+    %% Subgraph 2: API REST (FastAPI)
+    subgraph APILayer ["⚡ Capa de API (api.py)"]
+        LoginEndpoint["POST /login"]:::api
+        ArticlesEndpoint["GET /articles (Protected)"]:::api
+        DeleteUserEndpoint["DELETE /users/{id} (Protected)"]:::api
+        RestoreUserEndpoint["PATCH /users/{id}/restore"]:::api
+        AuthMiddleware["Security Dependency (get_current_user)"]:::api
+    end
+
+    %% Subgraph 3: Servicios y Lógica de Negocio
+    subgraph ServiceLayer ["⚙️ Capa de Servicios"]
+        AuthService["AuthService (JWT & Password Hashing)"]:::service
+        LiteratureService["LiteratureService"]:::service
+        UserService["UserService (Soft Delete Rules)"]:::service
+    end
+
+    %% Subgraph 4: Repositorios y Persistencia
+    subgraph RepoLayer ["🗄️ Capa de Repositorio & Base de Datos"]
+        ArticleRepo["ArticleRepository"]:::db
+        UserRepo["UserRepository (is_active / deleted_at)"]:::db
+        PostgreSQL[("🐘 PostgreSQL (academic_management)")]:::db
+    end
+
+    %% Subgraph 5: CI/CD & Calidad
+    subgraph CICD ["🛡️ CI/CD & Testing (GitHub Actions)"]
+        Pytest["🧪 Pytest (Isolated Mocks)"]:::cicd
+        Bandit["🔍 Bandit (Security Linter)"]:::cicd
+        OWASP["🛡️ OWASP Dependency-Check"]:::cicd
+    end
+
+    %% Flujos de Cliente a API
+    WebUI -->|Credentials| LoginEndpoint
+    WebUI -->|Bearer JWT| ArticlesEndpoint
+    WebUI -->|Bearer JWT| DeleteUserEndpoint
+    CLI -->|Local Call / Requests| APILayer
+
+    %% Autenticación Middleware
+    ArticlesEndpoint --> AuthMiddleware
+    DeleteUserEndpoint --> AuthMiddleware
+    AuthMiddleware -->|Validate JWT| AuthService
+
+    %% Conexiones API a Servicios
+    LoginEndpoint --> AuthService
+    ArticlesEndpoint --> LiteratureService
+    DeleteUserEndpoint --> UserService
+    RestoreUserEndpoint --> UserService
+
+    %% Conexiones Servicios a Repositorios
+    LiteratureService --> ArticleRepo
+    UserService --> UserRepo
+
+    %% Conexiones Repositorio a BD
+    ArticleRepo --> PostgreSQL
+    UserRepo --> PostgreSQL
+
+    %% Relación CI/CD
+    CICD -.->|Validates Code & Sec| APILayer
+    CICD -.->|Executes Tests| ServiceLayer
