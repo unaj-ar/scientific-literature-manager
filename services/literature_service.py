@@ -30,10 +30,16 @@ class LiteratureService:
             title, year, doi_clean, priority, status, tags, pdf_path, notes, authors_list
         )
 
-    def fetch_prioritized_list(self):
-        return self.repository.get_by_priority()
+    @staticmethod
+    def _page(rows: list, total: int, page: int, page_size: int) -> dict:
+        return {"items": rows, "total": total, "page": page, "page_size": page_size}
 
-    def fetch_articles_by_author(self, author_name):
+    def fetch_prioritized_list(self, page: int = 1, page_size: int = 20) -> dict:
+        rows, total = self.repository.get_by_priority(page_size, (page - 1) * page_size)
+        return self._page(rows, total, page, page_size)
+
+    def fetch_articles_by_author(self, author_name: str, page: int = 1, page_size: int = 20) -> dict:
         if not author_name.strip():
-            return []
-        return self.repository.get_by_author(author_name)
+            return self._page([], 0, page, page_size)
+        rows, total = self.repository.get_by_author(author_name, page_size, (page - 1) * page_size)
+        return self._page(rows, total, page, page_size)

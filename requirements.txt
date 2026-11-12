@@ -6,3 +6,4 @@ pydantic>=2.0.0
 pyjwt>=2.8.0
 pwdlib[argon2]>=0.2.0
 python-multipart>=0.0.6
+gunicorn==21.2.0

@@ -11,7 +11,7 @@ from services.user_service import UserService
 @pytest.fixture
 def articles_service(monkeypatch):
     svc = MagicMock()
-    svc.fetch_prioritized_list.return_value = []
+    svc.fetch_prioritized_list.return_value = {"items": [], "total": 0, "page": 1, "page_size": 20}
     svc.register_new_article.return_value = 5
     monkeypatch.setattr(api, "service", svc)
     return svc
@@ -138,3 +138,20 @@ def test_role_change_applies_to_existing_token(client, add_user, auth):
     assert client.get("/users", headers=rita_headers).status_code == 403
     client.patch(f"/users/{rita}/role", json={"role": "admin"}, headers=auth("root"))
     assert client.get("/users", headers=rita_headers).status_code == 200
+
+
+def test_articles_pagination_params_are_forwarded(client, add_user, auth, articles_service):
+    add_user("rita")
+
+    response = client.get("/articles?page=2&page_size=5", headers=auth("rita"))
+
+    assert response.status_code == 200
+    articles_service.fetch_prioritized_list.assert_called_once_with(2, 5)
+
+
+def test_articles_invalid_pagination_returns_422(client, add_user, auth, articles_service):
+    add_user("rita")
+    headers = auth("rita")
+
+    assert client.get("/articles?page=0", headers=headers).status_code == 422
+    assert client.get("/articles?page_size=101", headers=headers).status_code == 422

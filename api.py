@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse  # <-- 1. Agregar esta importación
@@ -129,14 +129,23 @@ class ArticleSchema(BaseModel):
     notes: Optional[str] = ""
 
 @app.get("/articles")
-def get_articles(_user: dict = Depends(require_permission(ARTICLES_READ))):
-    """Obtiene la lista priorizada de artículos."""
-    return service.fetch_prioritized_list()
+def get_articles(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    _user: dict = Depends(require_permission(ARTICLES_READ)),
+):
+    """Obtiene una página de la lista priorizada de artículos."""
+    return service.fetch_prioritized_list(page, page_size)
 
 @app.get("/articles/author/{author_name}")
-def get_articles_by_author(author_name: str, _user: dict = Depends(require_permission(ARTICLES_READ))):
-    """Consulta artículos filtrados por autor."""
-    return service.fetch_articles_by_author(author_name)
+def get_articles_by_author(
+    author_name: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    _user: dict = Depends(require_permission(ARTICLES_READ)),
+):
+    """Consulta una página de artículos filtrados por autor."""
+    return service.fetch_articles_by_author(author_name, page, page_size)
 
 @app.post("/articles")
 def create_article(article: ArticleSchema, _user: dict = Depends(require_permission(ARTICLES_CREATE))):
