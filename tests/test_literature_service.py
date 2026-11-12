@@ -49,13 +49,21 @@ def test_fetch_prioritized_list_success(service):
     ]
 
     # Configurar el método real que invoca la capa de servicio
-    service.repository.get_by_priority.return_value = mock_articles
+    service.repository.get_by_priority.return_value = (mock_articles, 45)
 
-    result = service.fetch_prioritized_list()
+    result = service.fetch_prioritized_list(page=3, page_size=20)
 
-    assert len(result) == 2
-    assert result[0]["priority"] == "P1"
-    assert service.repository.get_by_priority.called
+    assert len(result["items"]) == 2
+    assert result["items"][0]["priority"] == "P1"
+    assert result["total"] == 45
+    service.repository.get_by_priority.assert_called_once_with(20, 40)
+
+
+def test_fetch_articles_by_author_blank_returns_empty_page(service):
+    result = service.fetch_articles_by_author("  ")
+
+    assert result == {"items": [], "total": 0, "page": 1, "page_size": 20}
+    assert not service.repository.get_by_author.called
 
 
 def test_register_new_article_calls_repository(service):

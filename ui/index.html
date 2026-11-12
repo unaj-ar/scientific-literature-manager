@@ -103,6 +103,7 @@
                     <div id="articles-container" class="space-y-3">
                         <p class="text-slate-400 text-sm">Cargando registros...</p>
                     </div>
+                    <div id="pager" class="flex items-center justify-between gap-2 pt-4"></div>
                 </div>
 
             </div>
@@ -126,37 +127,52 @@
             return false;
         }
 
+        // Estado de la lista: autor activo (vacío = lista general) y página actual
+        let currentAuthor = '';
+        let currentPage = 1;
+        const PAGE_SIZE = 20;
+
         // 1. Cargar artículos ordenados por prioridad
-        async function loadArticles() {
+        function loadArticles() {
+            currentAuthor = '';
+            return fetchPage(1);
+        }
+
+        // 2. Buscar artículos por nombre de autor
+        function searchByAuthor() {
+            currentAuthor = document.getElementById('search-author').value.trim();
+            return fetchPage(1);
+        }
+
+        async function fetchPage(page) {
             const container = document.getElementById('articles-container');
             container.innerHTML = '<p class="text-slate-400 text-sm">Cargando...</p>';
 
+            const base = currentAuthor
+                ? `${API_URL}/articles/author/${encodeURIComponent(currentAuthor)}`
+                : `${API_URL}/articles`;
+
             try {
-                const res = await fetch(`${API_URL}/articles`, { headers: authHeaders() });
+                const res = await fetch(`${base}?page=${page}&page_size=${PAGE_SIZE}`, { headers: authHeaders() });
                 if (handleUnauthorized(res)) return;
-                const articles = await res.json();
-                renderArticles(articles);
+                const data = await res.json();
+                currentPage = data.page;
+                renderArticles(data.items);
+                renderPager(data);
             } catch (err) {
                 container.innerHTML = `<p class="text-red-400 text-sm">Error conectando con la API backend: ${err.message}</p>`;
             }
         }
 
-        // 2. Buscar artículos por nombre de autor
-        async function searchByAuthor() {
-            const author = document.getElementById('search-author').value.trim();
-            if (!author) return loadArticles();
-
-            const container = document.getElementById('articles-container');
-            container.innerHTML = '<p class="text-slate-400 text-sm">Buscando...</p>';
-
-            try {
-                const res = await fetch(`${API_URL}/articles/author/${encodeURIComponent(author)}`, { headers: authHeaders() });
-                if (handleUnauthorized(res)) return;
-                const articles = await res.json();
-                renderArticles(articles);
-            } catch (err) {
-                container.innerHTML = `<p class="text-red-400 text-sm">Error en la búsqueda: ${err.message}</p>`;
-            }
+        function renderPager(data) {
+            const pager = document.getElementById('pager');
+            const pages = Math.max(1, Math.ceil(data.total / data.page_size));
+            pager.innerHTML = `
+                <button onclick="fetchPage(${data.page - 1})" ${data.page <= 1 ? 'disabled' : ''}
+                    class="bg-slate-700 hover:bg-slate-600 disabled:opacity-40 px-3 py-1 rounded text-sm">← Anterior</button>
+                <span class="text-sm text-slate-400">Página ${data.page} de ${pages} · ${data.total} artículos</span>
+                <button onclick="fetchPage(${data.page + 1})" ${data.page >= pages ? 'disabled' : ''}
+                    class="bg-slate-700 hover:bg-slate-600 disabled:opacity-40 px-3 py-1 rounded text-sm">Siguiente →</button>`;
         }
 
         // Renderizar elementos en el DOM

@@ -37,8 +37,8 @@ class ArticleRepository:
                 conn.commit()
                 return article_id
 
-    def get_by_priority(self) -> list:
-        """Obtiene la lista priorizada de artículos con sus autores agrupados."""
+    def get_by_priority(self, limit: int = 20, offset: int = 0) -> tuple[list, int]:
+        """Obtiene una página de artículos priorizados y el total de artículos."""
         query = """
         SELECT a.id, a.title, a.priority, a.status, a.tags,
                STRING_AGG(au.name, ', ') AS authors
@@ -46,24 +46,38 @@ class ArticleRepository:
         LEFT JOIN article_authors aa ON a.id = aa.article_id
         LEFT JOIN authors au ON aa.author_id = au.id
         GROUP BY a.id
-        ORDER BY a.priority ASC, a.created_at DESC;
+        ORDER BY a.priority ASC, a.created_at DESC, a.id
+        LIMIT %s OFFSET %s;
         """
         with get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute(query)
-                return cursor.fetchall()
+                cursor.execute("SELECT COUNT(*) AS total FROM articles;")
+                total = cursor.fetchone()["total"]
+                cursor.execute(query, (limit, offset))
+                return cursor.fetchall(), total
 
-    def get_by_author(self, author_name: str) -> list:
-        """Consulta los artículos escritos por un autor específico."""
+    def get_by_author(self, author_name: str, limit: int = 20, offset: int = 0) -> tuple[list, int]:
+        """Consulta una página de artículos de un autor y el total de coincidencias."""
         query = """
         SELECT a.id, a.title, a.publication_year, a.priority, a.status, a.doi, a.pdf_path
         FROM articles a
         JOIN article_authors aa ON a.id = aa.article_id
         JOIN authors au ON aa.author_id = au.id
         WHERE au.name ILIKE %s
-        ORDER BY a.publication_year DESC;
+        ORDER BY a.publication_year DESC, a.id
+        LIMIT %s OFFSET %s;
         """
+        count_query = """
+        SELECT COUNT(DISTINCT a.id) AS total
+        FROM articles a
+        JOIN article_authors aa ON a.id = aa.article_id
+        JOIN authors au ON aa.author_id = au.id
+        WHERE au.name ILIKE %s;
+        """
+        pattern = f"%{author_name.strip()}%"
         with get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute(query, (f"%{author_name.strip()}%",))
-                return cursor.fetchall()
+                cursor.execute(count_query, (pattern,))
+                total = cursor.fetchone()["total"]
+                cursor.execute(query, (pattern, limit, offset))
+                return cursor.fetchall(), total
