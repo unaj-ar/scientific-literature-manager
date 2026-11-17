@@ -155,3 +155,16 @@ def test_articles_invalid_pagination_returns_422(client, add_user, auth, article
 
     assert client.get("/articles?page=0", headers=headers).status_code == 422
     assert client.get("/articles?page_size=101", headers=headers).status_code == 422
+
+
+def test_blank_title_returns_400_with_request_id(client, add_user, auth):
+    add_user("rita")
+    from services.literature_service import LiteratureService
+    from unittest.mock import patch
+    with patch("services.literature_service.ArticleRepository"):
+        api.service = LiteratureService()
+        response = client.post("/articles", json={"title": "  ", "authors": "A"}, headers=auth("rita"))
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "El título no puede estar vacío."
+    assert response.json()["request_id"] == response.headers["X-Request-ID"]

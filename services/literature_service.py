@@ -1,4 +1,5 @@
 from repository.article_repository import ArticleRepository
+from services.exceptions import InvalidDataError
 
 
 class LiteratureService:
@@ -16,7 +17,7 @@ class LiteratureService:
     def register_new_article(self, title, authors_raw, year_raw, doi, priority_raw, status_raw, tags, pdf_path, notes):
         """Valida entradas y registra un nuevo artículo en la BD."""
         if not title.strip():
-            raise ValueError("El título no puede estar vacío.")
+            raise InvalidDataError("El título no puede estar vacío.")
 
         # Limpieza de datos
         year = int(year_raw) if str(year_raw).isdigit() else None

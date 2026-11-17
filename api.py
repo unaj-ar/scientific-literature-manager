@@ -13,8 +13,14 @@ from repository.user_repository import UserRepository
 from services.permissions import ARTICLES_CREATE, ARTICLES_READ, USERS_MANAGE, has_permission, permissions_for
 from services.user_service import UserService
 from services.literature_service import LiteratureService
+from config.error_handlers import register_middleware_and_handlers
+from config.logging_config import setup_logging
+
+setup_logging()
 
 app = FastAPI(title="Scientific Literature Manager API")
+
+register_middleware_and_handlers(app)
 
 # Permitir CORS
 app.add_middleware(
@@ -150,21 +156,18 @@ def get_articles_by_author(
 @app.post("/articles")
 def create_article(article: ArticleSchema, _user: dict = Depends(require_permission(ARTICLES_CREATE))):
     """Guarda un nuevo artículo en la base de datos PostgreSQL."""
-    try:
-        article_id = service.register_new_article(
-            title=article.title,
-            authors_raw=article.authors,
-            year_raw=article.publication_year,
-            doi=article.doi,
-            priority_raw=article.priority,
-            status_raw=article.status,
-            tags=article.tags,
-            pdf_path=article.pdf_path,
-            notes=article.notes
-        )
-        return {"status": "success", "article_id": article_id}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    article_id = service.register_new_article(
+        title=article.title,
+        authors_raw=article.authors,
+        year_raw=article.publication_year,
+        doi=article.doi,
+        priority_raw=article.priority,
+        status_raw=article.status,
+        tags=article.tags,
+        pdf_path=article.pdf_path,
+        notes=article.notes
+    )
+    return {"status": "success", "article_id": article_id}
 
 
 @app.get("/users")
